@@ -892,6 +892,9 @@ impl Reedline {
             ReedlineEvent::MenuNext => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::NextElement);
                         Ok(EventStatus::Handled)
                     })
@@ -899,6 +902,9 @@ impl Reedline {
             ReedlineEvent::MenuPrevious => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::PreviousElement);
                         Ok(EventStatus::Handled)
                     })
@@ -906,6 +912,9 @@ impl Reedline {
             ReedlineEvent::MenuUp => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::MoveUp);
                         Ok(EventStatus::Handled)
                     })
@@ -913,6 +922,9 @@ impl Reedline {
             ReedlineEvent::MenuDown => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::MoveDown);
                         Ok(EventStatus::Handled)
                     })
@@ -920,6 +932,9 @@ impl Reedline {
             ReedlineEvent::MenuLeft => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::MoveLeft);
                         Ok(EventStatus::Handled)
                     })
@@ -927,6 +942,9 @@ impl Reedline {
             ReedlineEvent::MenuRight => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::MoveRight);
                         Ok(EventStatus::Handled)
                     })
