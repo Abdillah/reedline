@@ -140,6 +140,9 @@ pub struct Reedline {
     // Indicate if global terminal have enabled BracketedPaste
     bracket_paste_enabled: bool,
 
+    // Use kitty protocol to handle escape code input or not
+    use_kitty_protocol: bool,
+
     #[cfg(feature = "external_printer")]
     external_printer: Option<ExternalPrinter<String>>,
 }
@@ -210,6 +213,7 @@ impl Reedline {
             buffer_editor: None,
             cursor_shapes: None,
             bracket_paste_enabled: false,
+            use_kitty_protocol: false,
             #[cfg(feature = "external_printer")]
             external_printer: None,
         }
@@ -241,6 +245,27 @@ impl Reedline {
             self.bracket_paste_enabled = false;
         }
         res
+    }
+
+    /// Return terminal support on keyboard enhancement
+    pub fn can_use_kitty_protocol(&mut self) -> bool {
+        if let Ok(b) = crossterm::terminal::supports_keyboard_enhancement() {
+            b
+        } else {
+            false
+        }
+    }
+
+    /// Enable keyboard enhancement to disambiguate escape code
+    pub fn enable_kitty_protocol(&mut self) -> Result<()> {
+        self.use_kitty_protocol = true;
+        Ok(())
+    }
+
+    /// Disable keyboard enhancement to disambiguate escape code
+    pub fn disable_kitty_protocol(&mut self) -> Result<()> {
+        self.use_kitty_protocol = false;
+        Ok(())
     }
 
     /// Return the previously generated history session id
@@ -619,6 +644,31 @@ impl Reedline {
         let mut crossterm_events: Vec<ReedlineRawEvent> = vec![];
         let mut reedline_events: Vec<ReedlineEvent> = vec![];
 
+        if self.use_kitty_protocol {
+            if let Ok(true) = crossterm::terminal::supports_keyboard_enhancement() {
+                // enable kitty protocol
+                //
+                // Note that, currently, only the following support this protocol:
+                // * [kitty terminal](https://sw.kovidgoyal.net/kitty/)
+                // * [foot terminal](https://codeberg.org/dnkl/foot/issues/319)
+                // * [WezTerm terminal](https://wezfurlong.org/wezterm/config/lua/config/enable_kitty_keyboard.html)
+                // * [notcurses library](https://github.com/dankamongmen/notcurses/issues/2131)
+                // * [neovim text editor](https://github.com/neovim/neovim/pull/18181)
+                // * [kakoune text editor](https://github.com/mawww/kakoune/issues/4103)
+                // * [dte text editor](https://gitlab.com/craigbarnes/dte/-/issues/138)
+                //
+                // Refer to https://sw.kovidgoyal.net/kitty/keyboard-protocol/ if you're curious.
+                let _ = execute!(
+                    io::stdout(),
+                    event::PushKeyboardEnhancementFlags(
+                        event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    )
+                );
+            } else {
+                // TODO: Log or warning
+            }
+        }
+
         loop {
             let mut paste_enter_state = false;
 
@@ -712,6 +762,9 @@ impl Reedline {
             for event in reedline_events.drain(..) {
                 match self.handle_event(prompt, event)? {
                     EventStatus::Exits(signal) => {
+                        if self.use_kitty_protocol {
+                            let _ = execute!(io::stdout(), event::PopKeyboardEnhancementFlags);
+                        }
                         // Move the cursor below the input area, for external commands or new read_line call
                         self.painter.move_cursor_to_end()?;
                         return Ok(signal);
@@ -879,6 +932,14 @@ impl Reedline {
                             return Ok(EventStatus::Handled);
                         }
 
+                        if self.quick_completions
+                            && menu.can_quick_complete()
+                            && menu.get_values().is_empty()
+                        {
+                            menu.menu_event(MenuEvent::Deactivate);
+                            return Ok(EventStatus::Inapplicable);
+                        }
+
                         return Ok(EventStatus::Handled);
                     }
                 }
@@ -887,6 +948,9 @@ impl Reedline {
             ReedlineEvent::MenuNext => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::NextElement);
                         Ok(EventStatus::Handled)
                     })
@@ -894,6 +958,9 @@ impl Reedline {
             ReedlineEvent::MenuPrevious => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::PreviousElement);
                         Ok(EventStatus::Handled)
                     })
@@ -901,6 +968,9 @@ impl Reedline {
             ReedlineEvent::MenuUp => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::MoveUp);
                         Ok(EventStatus::Handled)
                     })
@@ -908,6 +978,9 @@ impl Reedline {
             ReedlineEvent::MenuDown => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::MoveDown);
                         Ok(EventStatus::Handled)
                     })
@@ -915,6 +988,9 @@ impl Reedline {
             ReedlineEvent::MenuLeft => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::MoveLeft);
                         Ok(EventStatus::Handled)
                     })
@@ -922,6 +998,9 @@ impl Reedline {
             ReedlineEvent::MenuRight => {
                 self.active_menu()
                     .map_or(Ok(EventStatus::Inapplicable), |menu| {
+                        if menu.get_values().len() < 2 {
+                            return Ok(EventStatus::Inapplicable);
+                        }
                         menu.menu_event(MenuEvent::MoveRight);
                         Ok(EventStatus::Handled)
                     })
